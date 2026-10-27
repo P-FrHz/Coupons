@@ -414,6 +414,8 @@
       fld('عنوان العرض', inp('theme.offer_title', t.offer_title), 'مثال: قهوة مجانية، غسيل سيارة مجاني') +
       fld('وصف قصير', inp('theme.offer_sub', t.offer_sub)) +
       fld('شارة صغيرة أعلى التذكرة', inp('theme.badge', t.badge), 'مثال: هدية، عرض خاص (اتركه فاضي لإخفائها)') +
+      fld('النص تحت رمز QR', inp('theme.scan_hint', t.scan_hint), 'مثال: أظهر هذا الكود للكاشير. اتركه فاضي لإخفائه') +
+      fld('عبارة الصلاحية', inp('theme.expiry_label', t.expiry_label), 'يظهر بعدها تاريخ انتهاء الكوبون تلقائياً (من صلاحية الدفعة)، مثال: ينتهي بتاريخ') +
       fld('الشروط (سطر لكل شرط)', '<textarea class="a-ta" data-k="theme.terms">' + esc(t.terms) + '</textarea>') +
       fld('الألوان', '<div class="chips">' + PRESETS.map((p, i) => '<button type="button" class="sw" data-pre="' + i + '" title="' + p[0] + '" style="background:linear-gradient(135deg,' + p[1] + ',' + p[2] + ')"></button>').join('') + '</div>') +
       '<div class="grid2 keep" style="margin-top:10px"><div><label class="f">الرئيسي</label><input type="color" data-k="theme.color" value="' + esc(t.color) + '"></div>' +

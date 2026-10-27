@@ -56,6 +56,8 @@
     terms: 'الكوبون يُستخدم مرة واحدة فقط\nأظهر الكود للكاشير عند الطلب\nالعرض لفترة محدودة وحتى نفاد الكمية',
     color: '#7c4a21', color2: '#d99a5b', mode: 'light', font: 'Tajawal',
     badge: 'هدية',
+    scan_hint: 'أظهر هذا الكود للكاشير',
+    expiry_label: 'صالح حتى',
     share_msg: 'هلا 👋\nهديتك من {brand}: {offer}\nافتح الرابط وأظهره للكاشير:\n{link}'
   };
   function loadFont(name) {
@@ -116,12 +118,12 @@
     if (!dead) {
       if (opts.qr === false) {
         foot = '<div class="okbox"><div class="tick">✓</div><b>كوبون صالح</b></div>' +
-          (d.expires_at ? '<div class="meta">صالح حتى ' + esc(fmtDate(d.expires_at)) + '</div>' : '');
+          (d.expires_at ? '<div class="meta">' + esc(t.expiry_label) + ' ' + esc(fmtDate(d.expires_at)) + '</div>' : '');
       } else {
         foot = '<div class="qr"><canvas></canvas></div>' +
           '<div class="code">' + esc(fmtCode(d.code)) + '</div>' +
-          '<div class="hint-scan">أظهر هذا الكود للكاشير</div>' +
-          (d.expires_at ? '<div class="meta">صالح حتى ' + esc(fmtDate(d.expires_at)) + '</div>' : '');
+          (t.scan_hint ? '<div class="hint-scan">' + esc(t.scan_hint) + '</div>' : '') +
+          (d.expires_at ? '<div class="meta">' + esc(t.expiry_label) + ' ' + esc(fmtDate(d.expires_at)) + '</div>' : '');
       }
     } else {
       const m = DEAD[st] || DEAD.invalid;
