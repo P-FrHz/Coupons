@@ -8,9 +8,11 @@
     if (!configured) throw new Error('not_configured');
     let r;
     try {
-      r = await fetch(CFG.SUPABASE_URL.replace(/\/$/, '') + '/rest/v1/rpc/' + fn, {
+      // ينظّف الرابط: يشيل المسافات و / الأخيرة وأي /rest/v1 زائدة
+      const base = String(CFG.SUPABASE_URL).trim().replace(/\/+$/, '').replace(/\/rest\/v1$/, '').replace(/\/+$/, '');
+      r = await fetch(base + '/rest/v1/rpc/' + fn, {
         method: 'POST',
-        headers: { apikey: CFG.SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+        headers: { apikey: String(CFG.SUPABASE_ANON_KEY).trim(), 'Content-Type': 'application/json' },
         body: JSON.stringify(args || {})
       });
     } catch (e) { throw new Error('network'); }
