@@ -260,7 +260,7 @@
       return '<div class="crow ' + s + '"><div class="cmain"><span class="num">#' + k.n + '</span><code>' + esc(App.fmtCode(k.code)) + '</code>' + badge(k) + '</div>' +
         '<div class="clabel">' + (k.label ? esc(k.label) : '<i>بدون ملاحظة (جوال العميل أو رقم الفاتورة)</i>') + '</div>' +
         '<div class="cact" data-code="' + k.code + '">' +
-        (s === 'avail' ? '<button class="a-btn sm" data-act="wa">واتساب</button><button class="a-btn ghost sm" data-act="copy">نسخ الرابط</button>' +
+        (s === 'avail' ? '<button class="a-btn sm" data-act="pdf">📄 إرسال PDF</button><button class="a-btn ghost sm" data-act="wa">رابط واتساب</button><button class="a-btn ghost sm" data-act="copy">نسخ الرابط</button>' +
           '<button class="a-btn ghost sm" data-act="qr">QR</button><button class="a-btn ghost sm" data-act="open">فتح</button>' : '') +
         (s === 'expired' ? '<button class="a-btn sm" data-act="rep">🔄 استبدال</button>' : '') +
         '<button class="a-btn ghost sm" data-act="label">✏️</button>' +
@@ -276,12 +276,13 @@
       '<div class="card"><div class="chips" id="flts">' +
       FLT.map(f => '<button type="button" class="chip' + (filter === f[0] ? ' on' : '') + '" data-flt="' + f[0] + '">' + f[1] + ' (' + (counts[f[0]] || 0) + ')</button>').join('') + '</div>' +
       (nExp ? '<div class="warn" style="margin-top:12px">⏳ ' + nExp + ' كوبون منتهي لم يُستخدم. <button class="a-btn sm" id="repAll" style="margin-inline-start:8px">استبدال الكل</button><div class="hint" style="margin-top:6px">البدائل تُصدر بالصلاحية المحددة فوق ' + (genDate ? '(حتى ' + esc(App.fmtDate(genDate + 'T12:00:00+03:00')) + ')' : '(بدون انتهاء)') + ' وتحمل نفس الملاحظة.</div></div>' : '') +
-      '<div class="row" style="margin-top:12px;justify-content:flex-end"><button class="a-btn ghost sm" id="csvBtn">CSV</button><button class="a-btn ghost sm" id="zipBtn">تنزيل الأكواد (ZIP)</button></div>' +
+      '<div class="row" style="margin-top:12px;justify-content:flex-end"><button class="a-btn ghost sm" id="csvBtn">CSV</button><button class="a-btn ghost sm" id="pdfZipBtn">ملفات PDF (ZIP)</button><button class="a-btn ghost sm" id="zipBtn">صور QR (ZIP)</button></div>' +
       '<div style="margin-top:8px">' + (rows || '<div class="empty">لا توجد كوبونات في هذه القائمة</div>') + '</div></div>';
     $('#genBtn').onclick = generate;
     $('#flts').onclick = e => { const b = e.target.closest('[data-flt]'); if (b) { filter = b.dataset.flt; drawCoupons(); } };
     $('#csvBtn').onclick = exportCsv;
     $('#zipBtn').onclick = exportZip;
+    $('#pdfZipBtn').onclick = exportPdfZip;
     const ra = $('#repAll'); if (ra) ra.onclick = () => replaceExpired(null);
     const ge = $('#genExp');
     const sync = () => { genDate = ge.value; $('#genExpTxt').textContent = genDate ? '' : 'بدون انتهاء'; document.querySelectorAll('[data-days]').forEach(b => b.classList.toggle('on', (+b.dataset.days === 0 ? !genDate : genDate === riyadhDate(+b.dataset.days)))); };
@@ -295,6 +296,7 @@
     if (a === 'copy') copy(link(code));
     else if (a === 'open') window.open(link(code), '_blank');
     else if (a === 'wa') shareWa(k);
+    else if (a === 'pdf') sharePdf(k);
     else if (a === 'qr') downloadOne(k);
     else if (a === 'rep') replaceExpired(code);
     else if (a === 'label') {
@@ -324,6 +326,44 @@
       await loadCamps(); await loadCoupons(); filter = 'avail'; drawCoupons(); toast('تم إصدار ' + n + ' بديل. أرسلها للعملاء من قائمة «متاح»');
     } catch (e) { toast(errText(e)); }
   }
+  /* ----- الكوبون كـPDF (بدون رابط ظاهر؛ الـQR داخله يفتح صفحة الكاشير) ----- */
+  const qrLink = code => link(code) + '&k=1';
+  const pdfBlob = k => App.couponPdf(cur().theme, { code: k.code, expires_at: k.expires_at }, qrLink(k.code));
+  function pdfMsg() {
+    const t = Object.assign({}, App.DEFAULT_THEME, cur().theme || {});
+    return String(t.pdf_msg || '').replace(/\{brand\}/g, t.brand).replace(/\{offer\}/g, t.offer_title).replace(/\{map\}/g, t.map_url || '');
+  }
+  async function sharePdf(k) {
+    toast('جارٍ تجهيز الـPDF…');
+    let blob;
+    try { blob = await pdfBlob(k); } catch (e) { return toast('تعذّر إنشاء الـPDF: ' + (e.message || e)); }
+    const name = 'coupon-' + String(k.n).padStart(3, '0') + '.pdf';
+    const file = new File([blob], name, { type: 'application/pdf' });
+    // على الجوال: نافذة المشاركة تفتح واتساب والملف مرفق جاهز
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try { await navigator.share({ files: [file], text: pdfMsg() }); return; }
+      catch (e) { if (e && e.name === 'AbortError') return; }
+    }
+    // الكمبيوتر: ينزّل الملف ويفتح محادثة واتساب، وأنت ترفقه
+    download(URL.createObjectURL(blob), name);
+    window.open('https://wa.me/' + phoneFrom(k.label) + '?text=' + encodeURIComponent(pdfMsg()), '_blank');
+    toast('نزّلت الـPDF، أرفقه في محادثة واتساب');
+  }
+  async function exportPdfZip() {
+    const list = filtered().filter(k => stat(k) === 'avail');
+    if (!list.length) return toast('لا توجد كوبونات متاحة في القائمة');
+    const btn = $('#pdfZipBtn'); btn.disabled = true; const files = [];
+    try {
+      for (let i = 0; i < list.length; i++) {
+        btn.textContent = (i + 1) + ' / ' + list.length;
+        const ph = phoneFrom(list[i].label), blob = await pdfBlob(list[i]);
+        files.push({ name: 'coupon-' + String(list[i].n).padStart(3, '0') + (ph ? '-' + ph : '') + '.pdf', data: new Uint8Array(await blob.arrayBuffer()) });
+      }
+      download(URL.createObjectURL(App.makeZip(files)), 'coupons-pdf-' + cur().slug + '.zip');
+    } catch (e) { toast('تعذّر إنشاء الملفات: ' + (e.message || e)); }
+    btn.disabled = false; btn.textContent = 'ملفات PDF (ZIP)';
+  }
+
   function phoneFrom(label) {
     const d = String(label || '').replace(/\D/g, '');
     if (/^05\d{8}$/.test(d)) return '966' + d.slice(1);
@@ -333,7 +373,7 @@
   }
   function shareWa(k) {
     const t = Object.assign({}, App.DEFAULT_THEME, cur().theme || {});
-    const msg = String(t.share_msg || '').replace(/\{brand\}/g, t.brand).replace(/\{offer\}/g, t.offer_title).replace(/\{link\}/g, link(k.code));
+    const msg = String(t.share_msg || '').replace(/\{brand\}/g, t.brand).replace(/\{offer\}/g, t.offer_title).replace(/\{map\}/g, t.map_url || '').replace(/\{link\}/g, link(k.code));
     const ph = phoneFrom(k.label);
     window.open('https://wa.me/' + ph + '?text=' + encodeURIComponent(msg), '_blank');
   }
@@ -374,7 +414,7 @@
       files.push({ name: 'coupon-' + String(list[i].n).padStart(3, '0') + '.png', data: data });
     }
     download(URL.createObjectURL(App.makeZip(files)), 'coupons-' + cur().slug + '.zip');
-    btn.disabled = false; btn.textContent = 'تنزيل الأكواد (ZIP)';
+    btn.disabled = false; btn.textContent = 'صور QR (ZIP)';
   }
   function exportCsv() {
     const list = filtered(); if (!list.length) return toast('لا توجد كوبونات');
@@ -406,14 +446,21 @@
       '<label class="switch" style="margin-top:16px"><input type="checkbox" data-k="active"' + (d.active ? ' checked' : '') + '> العرض فعّال</label></div>' +
 
       '<div class="card"><h3>🎨 التصميم</h3>' +
-      fld('اسم المحل', inp('theme.brand', t.brand)) +
+      '<div class="hint" style="margin:0 0 4px">اسمك أنت يظهر أعلى الكوبون، والمحل المتعاون يظهر في بطاقة «يُستلم لدى» مع زر موقعه على الخريطة.</div>' +
+      fld('اسمك / علامتك (يظهر أعلى الكوبون)', inp('theme.issuer_name', t.issuer_name), 'اتركه فاضي لو تبي يظهر اسم المحل فقط') +
+      fld('عبارة قبل اسمك', inp('theme.issuer_prefix', t.issuer_prefix), 'مثال: هدية مقدّمة من') +
+      fld('اسم المحل المتعاون', inp('theme.brand', t.brand)) +
+      fld('عبارة قبل اسم المحل', inp('theme.partner_prefix', t.partner_prefix), 'مثال: يُستلم لدى') +
+      fld('رابط موقع المحل على قوقل ماب', inp('theme.map_url', t.map_url, 'dir="ltr" style="text-align:left" placeholder="https://maps.app.goo.gl/..."'), 'افتح المحل في تطبيق قوقل ماب ثم «مشاركة» ثم «نسخ الرابط»، والصقه هنا') +
+      fld('نص زر الموقع', inp('theme.map_label', t.map_label)) +
       fld('الأيقونة', '<div class="chips">' + EMOJIS.map(e => '<button type="button" class="sw emo" data-emo="' + e + '">' + e + '</button>').join('') + '</div>') +
-      fld('الشعار (اختياري، يحل محل الأيقونة)', '<div class="row">' + (t.logo ? '<img class="logo-prev" id="lgPrev" src="' + esc(t.logo) + '">' : '') +
+      fld('شعارك (اختياري، يحل محل الأيقونة)', '<div class="row">' + (t.logo ? '<img class="logo-prev" id="lgPrev" src="' + esc(t.logo) + '">' : '') +
         '<input type="file" accept="image/*" id="lgFile" hidden><button type="button" class="a-btn ghost sm" id="lgBtn">رفع صورة</button>' +
         (t.logo ? '<button type="button" class="a-btn ghost sm" id="lgDel">إزالة</button>' : '') + '</div>') +
       fld('عنوان العرض', inp('theme.offer_title', t.offer_title), 'مثال: قهوة مجانية، غسيل سيارة مجاني') +
       fld('وصف قصير', inp('theme.offer_sub', t.offer_sub)) +
       fld('شارة صغيرة أعلى التذكرة', inp('theme.badge', t.badge), 'مثال: هدية، عرض خاص (اتركه فاضي لإخفائها)') +
+      '<label class="switch" style="margin:14px 0 0"><input type="checkbox" data-k="theme.show_code"' + (t.show_code ? ' checked' : '') + '> إظهار رقم الكود تحت رمز QR</label>' +
       fld('النص تحت رمز QR', inp('theme.scan_hint', t.scan_hint), 'مثال: أظهر هذا الكود للكاشير. اتركه فاضي لإخفائه') +
       fld('عبارة الصلاحية', inp('theme.expiry_label', t.expiry_label), 'يظهر بعدها تاريخ انتهاء الكوبون تلقائياً (من صلاحية الدفعة)، مثال: ينتهي بتاريخ') +
       fld('الشروط (سطر لكل شرط)', '<textarea class="a-ta" data-k="theme.terms">' + esc(t.terms) + '</textarea>') +
@@ -422,7 +469,8 @@
       '<div><label class="f">الثانوي</label><input type="color" data-k="theme.color2" value="' + esc(t.color2) + '"></div></div>' +
       '<div class="grid2 keep"><div>' + fld('الوضع', '<select class="a-sel" data-k="theme.mode">' + [['light', 'فاتح'], ['dark', 'داكن'], ['auto', 'تلقائي']].map(o => '<option value="' + o[0] + '"' + (t.mode === o[0] ? ' selected' : '') + '>' + o[1] + '</option>').join('') + '</select>') + '</div>' +
       '<div>' + fld('الخط', '<select class="a-sel" data-k="theme.font">' + Object.keys(App.FONTS).map(f => '<option' + (t.font === f ? ' selected' : '') + '>' + f + '</option>').join('') + '</select>') + '</div></div>' +
-      fld('رسالة الواتساب', '<textarea class="a-ta" data-k="theme.share_msg">' + esc(t.share_msg) + '</textarea>', 'المتغيرات: {brand} اسم المحل · {offer} العرض · {link} رابط الكوبون') +
+      fld('رسالة الواتساب', '<textarea class="a-ta" data-k="theme.share_msg">' + esc(t.share_msg) + '</textarea>', 'المتغيرات: {brand} اسم المحل · {offer} العرض · {link} رابط الكوبون · {map} رابط الموقع') +
+      fld('رسالة واتساب مع الـPDF (بدون رابط)', '<textarea class="a-ta" data-k="theme.pdf_msg">' + esc(t.pdf_msg) + '</textarea>', 'المتغيرات: {brand} اسم المحل · {offer} العرض · {map} رابط موقع المحل (اختياري)') +
       '</div>' +
 
       '<div class="row" style="margin-bottom:24px"><button class="a-btn" id="saveBtn" style="flex:1">' + (isNew ? 'إنشاء الحملة' : 'حفظ التغييرات') + '</button>' +
