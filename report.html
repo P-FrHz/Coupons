@@ -19,16 +19,16 @@
   const app = document.getElementById('app');
   const slug = (new URLSearchParams(location.search).get('s') || '').trim().toLowerCase();
   let timer = null;
+  try { Object.keys(localStorage).filter(k => k.indexOf('pin:') === 0).forEach(k => localStorage.removeItem(k)); } catch (e) {}
   const ERR = { bad_pin: 'الرمز السري غير صحيح', locked: 'محاولات كثيرة، انتظر 15 دقيقة', invalid: 'رابط التقرير غير صحيح' };
 
   function login(msg) {
     clearInterval(timer);
     app.innerHTML = '<div class="cashier" style="margin-top:60px"><h3>📊 تقرير الخدمات</h3>' +
       '<p>أدخل الرمز السري للمحل لعرض التقرير.</p>' +
-      '<input class="field" id="pin" type="password" inputmode="numeric" autocomplete="off" placeholder="••••">' +
+      '<input class="field" id="pin" type="password" inputmode="numeric" autocomplete="new-password" placeholder="••••">' +
       '<button class="btn" id="go">عرض التقرير</button><div class="msg" id="msg">' + App.esc(msg || '') + '</div></div>';
     const pin = document.getElementById('pin');
-    try { pin.value = localStorage.getItem('pin:' + slug) || ''; } catch (e) {}
     const go = () => fetchReport(pin.value);
     document.getElementById('go').onclick = go;
     pin.addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
@@ -39,7 +39,6 @@
     try { r = await App.rpc('report_data', { p_slug: slug, p_pin: pin }); }
     catch (e) { if (!silent) login(e.message === 'not_configured' ? 'الإعدادات غير مكتملة (config.js)' : 'تعذّر الاتصال'); return; }
     if (!r.ok) return login(ERR[r.error] || 'تعذّر عرض التقرير');
-    try { localStorage.setItem('pin:' + slug, pin); } catch (e) {}
     draw(r, pin);
   }
 
