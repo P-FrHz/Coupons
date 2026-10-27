@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="style.css?v=4">
 <style>
   body.admin{--a-bg:#f4f5f7;--a-card:#fff;--a-ink:#111827;--a-mut:#6b7280;--a-line:#e5e7eb;--a-pri:#111827;
     background:var(--a-bg);color:var(--a-ink);font-family:'Tajawal',system-ui,sans-serif}
@@ -95,10 +95,9 @@
 </div>
 <div id="toast"></div>
 
-<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-<script src="config.js"></script>
-<script src="shared.js"></script>
+<script src="qr.js?v=4"></script>
+<script src="config.js?v=4"></script>
+<script src="shared.js?v=4"></script>
 <script>
 (function () {
   const $ = (s, r) => (r || document).querySelector(s);
@@ -357,7 +356,7 @@
     x.font = '500 28px ' + f; x.fillText(t.offer_title, W / 2, 116);
     const qc = document.createElement('canvas');
     await QRCode.toCanvas(qc, link(code) + '&k=1', { width: 440, margin: 1, color: { dark: '#0f172a', light: '#ffffff' } });
-    x.drawImage(qc, (W - 440) / 2, 200);
+    x.drawImage(qc, Math.round((W - qc.width) / 2), 200);
     x.fillStyle = '#0f172a'; x.direction = 'ltr'; x.font = '700 30px ui-monospace, Menlo, monospace'; x.fillText(App.fmtCode(code), W / 2, 700);
     x.fillStyle = '#6b7280'; x.direction = 'rtl'; x.font = '500 24px ' + f; x.fillText('أظهر الكود للكاشير', W / 2, 746);
     return cv.toDataURL('image/png');
@@ -365,17 +364,17 @@
   async function downloadOne(k) { download(await qrPng(k.code), 'coupon-' + String(k.n).padStart(3, '0') + '.png'); }
   async function exportZip() {
     const list = filtered(); if (!list.length) return toast('لا توجد كوبونات');
-    if (!window.JSZip) return toast('تعذّر تحميل مكتبة ZIP');
     const btn = $('#zipBtn'); btn.disabled = true;
-    const zip = new JSZip();
+    const files = [];
     for (let i = 0; i < list.length; i++) {
       btn.textContent = (i + 1) + ' / ' + list.length;
       const url = await qrPng(list[i].code);
-      zip.file('coupon-' + String(list[i].n).padStart(3, '0') + '.png', url.split(',')[1], { base64: true });
+      const bin = atob(url.split(',')[1]), data = new Uint8Array(bin.length);
+      for (let k = 0; k < bin.length; k++) data[k] = bin.charCodeAt(k);
+      files.push({ name: 'coupon-' + String(list[i].n).padStart(3, '0') + '.png', data: data });
     }
-    const blob = await zip.generateAsync({ type: 'blob' });
-    download(URL.createObjectURL(blob), 'coupons-' + cur().slug + '.zip');
-    btn.disabled = false; btn.textContent = 'كل الـQR (ZIP)';
+    download(URL.createObjectURL(App.makeZip(files)), 'coupons-' + cur().slug + '.zip');
+    btn.disabled = false; btn.textContent = 'تنزيل الأكواد (ZIP)';
   }
   function exportCsv() {
     const list = filtered(); if (!list.length) return toast('لا توجد كوبونات');

@@ -153,7 +153,7 @@
     if (cv) {
       const text = opts.qrText || d.code || '';
       if (window.QRCode) {
-        QRCode.toCanvas(cv, text, { width: 400, margin: 0, errorCorrectionLevel: 'M',
+        QRCode.toCanvas(cv, text, { width: 400, margin: 2, errorCorrectionLevel: 'M',
           color: { dark: '#0f172a', light: '#ffffff' } }, () => {});
       } else {
         cv.parentElement.innerHTML = '<div class="meta" style="max-width:200px;word-break:break-all">' + esc(text) + '</div>';
@@ -161,6 +161,32 @@
     }
   }
 
+  /* ---------- ZIP بسيط بدون ضغط (للـPNG) — بدون أي مكتبة خارجية ---------- */
+  const CRC_T = (function () {
+    const t = new Uint32Array(256);
+    for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; }
+    return t;
+  })();
+  function crc32(b) { let c = 0xFFFFFFFF; for (let i = 0; i < b.length; i++) c = CRC_T[(c ^ b[i]) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+  function makeZip(files) {   // files: [{name, data: Uint8Array}]
+    const enc = new TextEncoder(), parts = [], central = [];
+    const u16 = n => [n & 255, (n >> 8) & 255];
+    const u32 = n => [n & 255, (n >> 8) & 255, (n >> 16) & 255, (n >>> 24) & 255];
+    let offset = 0;
+    files.forEach(f => {
+      const name = enc.encode(f.name), crc = crc32(f.data), size = f.data.length;
+      const local = new Uint8Array([0x50, 0x4b, 3, 4, ...u16(20), ...u16(0x0800), ...u16(0), ...u16(0), ...u16(0x21),
+        ...u32(crc), ...u32(size), ...u32(size), ...u16(name.length), ...u16(0)]);
+      parts.push(local, name, f.data);
+      central.push(new Uint8Array([0x50, 0x4b, 1, 2, ...u16(20), ...u16(20), ...u16(0x0800), ...u16(0), ...u16(0), ...u16(0x21),
+        ...u32(crc), ...u32(size), ...u32(size), ...u16(name.length), ...u16(0), ...u16(0), ...u16(0), ...u16(0), ...u32(0), ...u32(offset)]), name);
+      offset += local.length + name.length + size;
+    });
+    const cdSize = central.reduce((s, p) => s + p.length, 0);
+    const end = new Uint8Array([0x50, 0x4b, 5, 6, ...u16(0), ...u16(0), ...u16(files.length), ...u16(files.length), ...u32(cdSize), ...u32(offset), ...u16(0)]);
+    return new Blob(parts.concat(central, [end]), { type: 'application/zip' });
+  }
+
   window.App = { CFG, configured, rpc, esc, fmtCode, fmtDate, fmtDateTime, couponLink, toast,
-    FONTS, DEFAULT_THEME, applyTheme, onColor, renderCoupon };
+    FONTS, DEFAULT_THEME, applyTheme, onColor, renderCoupon, makeZip, crc32 };
 })();
