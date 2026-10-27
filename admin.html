@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=4">
+<link rel="stylesheet" href="style.css?v=5">
 <style>
   body.admin{--a-bg:#f4f5f7;--a-card:#fff;--a-ink:#111827;--a-mut:#6b7280;--a-line:#e5e7eb;--a-pri:#111827;
     background:var(--a-bg);color:var(--a-ink);font-family:'Tajawal',system-ui,sans-serif}
@@ -95,9 +95,9 @@
 </div>
 <div id="toast"></div>
 
-<script src="qr.js?v=4"></script>
-<script src="config.js?v=4"></script>
-<script src="shared.js?v=4"></script>
+<script src="qr.js?v=5"></script>
+<script src="config.js?v=5"></script>
+<script src="shared.js?v=5"></script>
 <script>
 (function () {
   const $ = (s, r) => (r || document).querySelector(s);
@@ -105,7 +105,7 @@
   const BASE = App.CFG.PUBLIC_BASE_URL || new URL('./', location.href).href;
 
   let KEY = ''; try { KEY = sessionStorage.getItem('ak') || ''; } catch (e) {}
-  let camps = [], curId = null, coupons = [], tab = 'overview', filter = 'all', draft = null, pvState = 'valid';
+  let camps = [], curId = null, coupons = [], tab = 'overview', filter = 'all', draft = null, pvState = 'valid', pvMode = 'coupon';
   const riyadhDate = (offsetDays) => new Date(Date.now() + (offsetDays || 0) * 864e5).toLocaleDateString('en-CA', { timeZone: 'Asia/Riyadh' });
   const endOfDayISO = d => d ? new Date(d + 'T23:59:59+03:00').toISOString() : null;
   let genDate = riyadhDate(30);   // صلاحية الدفعة القادمة (فاضي = بدون انتهاء)
@@ -473,12 +473,28 @@
       fld('رسالة واتساب مع الـPDF (بدون رابط)', '<textarea class="a-ta" data-k="theme.pdf_msg">' + esc(t.pdf_msg) + '</textarea>', 'المتغيرات: {brand} اسم المحل · {offer} العرض · {map} رابط موقع المحل (اختياري)') +
       '</div>' +
 
+      '<div class="card"><h3>📊 صفحة متابعة المحل المتعاون</h3>' +
+      '<div class="hint" style="margin:0 0 4px">هذي الصفحة اللي ترسل رابطها لصاحب المحل. عدّل عليها وشوف المعاينة (تتحول تلقائياً لمعاينة الصفحة).</div>' +
+      fld('عنوان أعلى الصفحة', inp('theme.report_heading', t.report_heading, 'data-rp="1"'), 'اتركه فاضي ليظهر اسم المحل') +
+      fld('النص تحت العدّاد', inp('theme.report_label', t.report_label, 'data-rp="1"'), 'مثال: عميل تمت خدمته') +
+      '<label class="switch" style="margin-top:14px"><input type="checkbox" data-rp="1" data-k="theme.show_recent"' + (t.show_recent ? ' checked' : '') + '> إظهار قائمة آخر العمليات</label>' +
+      fld('عنوان القائمة', inp('theme.recent_title', t.recent_title, 'data-rp="1"')) +
+      '<label class="switch" style="margin-top:14px"><input type="checkbox" data-rp="1" data-k="theme.show_today"' + (t.show_today ? ' checked' : '') + '> إظهار عدد اليوم</label>' +
+      '<label class="switch" style="margin-top:14px"><input type="checkbox" data-rp="1" data-k="theme.report_show_issuer"' + (t.report_show_issuer ? ' checked' : '') + '> إظهار اسمك أعلى الصفحة (إن كتبته في إعدادات الكوبون)</label>' +
+      fld('ملاحظة أسفل الصفحة', inp('theme.report_note', t.report_note, 'data-rp="1"'), 'اتركها فاضية لإخفائها') +
+      '<div class="grid2 keep"><div>' + fld('نمط الصفحة', '<select class="a-sel" data-rp="1" data-k="theme.r_mode">' + [['same', 'نفس الكوبون'], ['light', 'فاتح'], ['dark', 'داكن']].map(o => '<option value="' + o[0] + '"' + (t.r_mode === o[0] ? ' selected' : '') + '>' + o[1] + '</option>').join('') + '</select>') + '</div>' +
+      '<div><label class="switch" style="margin-top:36px"><input type="checkbox" data-rp="1" data-k="theme.r_custom"' + (t.r_custom ? ' checked' : '') + '> ألوان مختلفة عن الكوبون</label></div></div>' +
+      '<div class="grid2 keep" style="margin-top:6px"><div><label class="f">لون الصفحة الرئيسي</label><input type="color" data-rp="1" data-k="theme.r_color" value="' + esc(t.r_color) + '"></div>' +
+      '<div><label class="f">لون الصفحة الثانوي</label><input type="color" data-rp="1" data-k="theme.r_color2" value="' + esc(t.r_color2) + '"></div></div>' +
+      '</div>' +
+
       '<div class="row" style="margin-bottom:24px"><button class="a-btn" id="saveBtn" style="flex:1">' + (isNew ? 'إنشاء الحملة' : 'حفظ التغييرات') + '</button>' +
       (!isNew ? '<button class="a-btn danger" id="delBtn">حذف</button>' : '') + '</div>' +
       '</div>' +
 
       '<div class="pv-col"><div class="row between" style="margin-bottom:8px"><b>معاينة حيّة</b><div class="chips">' +
-      '<button type="button" class="chip" data-pv="valid">صالح</button><button type="button" class="chip" data-pv="redeemed">مستخدم</button></div></div>' +
+      '<button type="button" class="chip" data-pvm="coupon">الكوبون</button><button type="button" class="chip" data-pvm="report">صفحة المحل</button></div></div>' +
+      '<div class="chips" id="pvStates" style="margin-bottom:8px"><button type="button" class="chip" data-pv="valid">صالح</button><button type="button" class="chip" data-pv="redeemed">مستخدم</button></div>' +
       '<div class="pv themed" id="pv"><div class="wrap" id="pvIn"></div></div></div></div>';
     bindSettings();
     drawPreview();
@@ -491,14 +507,26 @@
   }
   function drawPreview() {
     const pv = $('#pv'); if (!pv || !draft) return;
-    const t = App.applyTheme(draft.theme, pv);
-    App.renderCoupon($('#pvIn'), {
-      status: pvState, theme: draft.theme, code: 'a1b2c3d4e5f60718',
-      expires_at: genDate ? genDate + 'T12:00:00+03:00' : riyadhDate(30) + 'T12:00:00+03:00',
-      redeemed_at: new Date().toISOString()
-    }, { qr: true, qrText: link('a1b2c3d4e5f60718') });
-    document.querySelectorAll('[data-pv]').forEach(b => b.classList.toggle('on', b.dataset.pv === pvState));
-    document.querySelectorAll('[data-pv]').forEach(b => { b.style.background = b.dataset.pv === pvState ? 'var(--a-pri)' : ''; b.style.color = b.dataset.pv === pvState ? 'var(--a-bg)' : ''; });
+    if (pvMode === 'report') {
+      App.applyTheme(App.reportTheme(draft.theme), pv);
+      App.renderReport($('#pvIn'), { theme: draft.theme, served: 37, today: 9, recent: [
+        { seq: 37, code_tail: '4365', redeemed_at: new Date().toISOString() },
+        { seq: 36, code_tail: '9A1F', redeemed_at: new Date(Date.now() - 3600e3).toISOString() },
+        { seq: 35, code_tail: '77C0', redeemed_at: new Date(Date.now() - 86400e3).toISOString() }] });
+    } else {
+      App.applyTheme(draft.theme, pv);
+      App.renderCoupon($('#pvIn'), {
+        status: pvState, theme: draft.theme, code: 'a1b2c3d4e5f60718',
+        expires_at: genDate ? genDate + 'T12:00:00+03:00' : riyadhDate(30) + 'T12:00:00+03:00',
+        redeemed_at: new Date().toISOString()
+      }, { qr: true, qrText: link('a1b2c3d4e5f60718') });
+    }
+    $('#pvStates').style.display = pvMode === 'coupon' ? '' : 'none';
+    const on = b => b.classList.contains('on');
+    document.querySelectorAll('[data-pv],[data-pvm]').forEach(b => {
+      const act = b.dataset.pv ? b.dataset.pv === pvState : b.dataset.pvm === pvMode;
+      b.classList.toggle('on', act);
+    });
   }
   function bindSettings() {
     const v = $('#view');
@@ -507,6 +535,7 @@
       let val = el.type === 'checkbox' ? el.checked : el.value;
       if (el.dataset.k === 'max') val = parseInt(val, 10) || 0;
       setPath(el.dataset.k, val);
+      if (el.dataset.rp) pvMode = 'report';
       drawPreview();
     };
     v.querySelectorAll('[data-emo]').forEach(b => b.onclick = () => { draft.theme.emoji = b.dataset.emo; draft.theme.logo = ''; viewSettings(); });
@@ -514,6 +543,7 @@
       const p = PRESETS[+b.dataset.pre]; draft.theme.color = p[1]; draft.theme.color2 = p[2]; viewSettings();
     });
     v.querySelectorAll('[data-pv]').forEach(b => b.onclick = () => { pvState = b.dataset.pv; drawPreview(); });
+    v.querySelectorAll('[data-pvm]').forEach(b => b.onclick = () => { pvMode = b.dataset.pvm; drawPreview(); });
     $('#lgBtn').onclick = () => $('#lgFile').click();
     $('#lgFile').onchange = e => { const f = e.target.files[0]; if (f) resizeLogo(f); };
     const del = $('#lgDel'); if (del) del.onclick = () => { draft.theme.logo = ''; viewSettings(); };

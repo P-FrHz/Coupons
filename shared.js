@@ -59,6 +59,9 @@
     pdf_msg: 'هلا 👋\nهديتك من {brand}: {offer}\nالكوبون مرفق، أظهره للكاشير عند الطلب 🎁',
     issuer_name: '', issuer_prefix: 'هدية مقدّمة من', partner_prefix: 'يُستلم لدى',
     map_url: '', map_label: '📍 موقع المحل على الخريطة', show_code: false,
+    report_heading: '', report_label: 'عميل تمت خدمته', show_today: false, show_recent: true,
+    recent_title: 'آخر العمليات', report_show_issuer: true, report_note: 'يتحدّث تلقائياً كل 30 ثانية',
+    r_mode: 'same', r_custom: false, r_color: '#0f766e', r_color2: '#5eead4',
     scan_hint: 'أظهر هذا الكود للكاشير',
     expiry_label: 'صالح حتى',
     share_msg: 'هلا 👋\nهديتك من {brand}: {offer}\nافتح الرابط وأظهره للكاشير:\n{link}'
@@ -354,6 +357,30 @@
     return makePdf([{ jpeg: jpeg, w: cv.width, h: cv.height, pw: 405, ph: Math.round(405 * cv.height / cv.width), links: cv.links || [] }]);
   }
 
+
+  /* ---------- صفحة متابعة المحل (قابلة للتخصيص من الإعدادات) ---------- */
+  function reportTheme(theme) {
+    const t = Object.assign({}, DEFAULT_THEME, theme || {}), o = Object.assign({}, t);
+    if (t.r_custom) { o.color = t.r_color; o.color2 = t.r_color2; }
+    if (t.r_mode === 'light' || t.r_mode === 'dark' || t.r_mode === 'auto') o.mode = t.r_mode;
+    return o;
+  }
+  function renderReport(el, r) {
+    const t = Object.assign({}, DEFAULT_THEME, r.theme || {});
+    const logo = t.logo ? '<img src="' + esc(t.logo) + '" alt="">' : esc(t.emoji);
+    const heading = String(t.report_heading || '').trim() || t.brand;
+    const issuer = String(t.issuer_name || '').trim() && t.report_show_issuer !== false;
+    const rows = (r.recent || []).map(x => '<div><b>عميل رقم ' + x.seq + '</b><span>' + esc(fmtDateTime(x.redeemed_at)) + ' · ' + esc(x.code_tail) + '</span></div>').join('');
+    el.innerHTML =
+      '<div style="text-align:center;margin-top:10px"><div class="logo" style="margin-bottom:8px">' + logo + '</div>' +
+      '<h2 style="margin:0">' + esc(heading) + '</h2><div style="color:var(--muted)">' + esc(t.offer_title) + '</div>' +
+      (issuer ? '<div style="color:var(--muted);font-size:14px;margin-top:4px">' + esc(t.issuer_prefix) + ' <b>' + esc(t.issuer_name) + '</b></div>' : '') + '</div>' +
+      '<div class="big-num"><b>' + r.served + '</b><span>' + esc(t.report_label) + '</span></div>' +
+      (t.show_today ? '<div class="stats" style="grid-template-columns:1fr"><div class="stat"><b>' + r.today + '</b><small>اليوم</small></div></div>' : '') +
+      (t.show_recent ? '<h3 style="margin:22px 4px 0">' + esc(t.recent_title) + '</h3><div class="rlist">' + (rows || '<div><span>لا توجد عمليات بعد</span></div>') + '</div>' : '') +
+      (t.report_note ? '<div class="foot">' + esc(t.report_note) + '</div>' : '');
+  }
+
   window.App = { CFG, configured, rpc, esc, fmtCode, fmtDate, fmtDateTime, couponLink, toast,
-    FONTS, DEFAULT_THEME, applyTheme, onColor, renderCoupon, makeZip, crc32, couponImage, couponPdf, makePdf };
+    FONTS, DEFAULT_THEME, applyTheme, onColor, renderCoupon, makeZip, crc32, couponImage, couponPdf, makePdf, reportTheme, renderReport };
 })();

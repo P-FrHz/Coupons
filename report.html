@@ -7,19 +7,13 @@
 <title>تقرير الاستخدام</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="style.css?v=4">
-<style>
-  .big-num{text-align:center;margin:22px 0 6px}
-  .big-num b{display:block;font-size:76px;line-height:1;font-weight:800;
-    background:linear-gradient(135deg,var(--brand),var(--brand2));-webkit-background-clip:text;background-clip:text;color:transparent}
-  .big-num span{color:var(--muted);font-size:16px}
-</style>
+<link rel="stylesheet" href="style.css?v=5">
 </head>
 <body>
 <main class="wrap" id="app"></main>
 <div id="toast"></div>
-<script src="config.js?v=4"></script>
-<script src="shared.js?v=4"></script>
+<script src="config.js?v=5"></script>
+<script src="shared.js?v=5"></script>
 <script>
 (function () {
   const app = document.getElementById('app');
@@ -50,18 +44,9 @@
   }
 
   function draw(r, pin) {
-    const t = App.applyTheme(r.theme);
+    const t = App.applyTheme(App.reportTheme(r.theme));
     document.title = 'تقرير — ' + t.brand;
-    const rows = r.recent.map(x => '<div><b>عميل رقم ' + x.seq + '</b><span>' + App.esc(App.fmtDateTime(x.redeemed_at)) + ' · ' + App.esc(x.code_tail) + '</span></div>').join('');
-    app.innerHTML =
-      '<div style="text-align:center;margin-top:10px"><div class="logo" style="margin-bottom:8px">' +
-      (t.logo ? '<img src="' + App.esc(t.logo) + '" alt="">' : App.esc(t.emoji)) + '</div>' +
-      '<h2 style="margin:0">' + App.esc(t.brand) + '</h2><div style="color:var(--muted)">' + App.esc(t.offer_title) + '</div></div>' +
-      '<div class="big-num"><b>' + r.served + '</b><span>عميل تمت خدمته</span></div>' +
-      '<div class="stats" style="grid-template-columns:1fr"><div class="stat"><b>' + r.today + '</b><small>اليوم</small></div></div>' +
-      '<h3 style="margin:22px 4px 0">آخر العمليات</h3>' +
-      '<div class="rlist">' + (rows || '<div><span>لا توجد عمليات بعد</span></div>') + '</div>' +
-      '<div class="foot">يتحدّث تلقائياً كل 30 ثانية</div>';
+    App.renderReport(app, r);
     clearInterval(timer);
     timer = setInterval(() => fetchReport(pin, true), 30000);
   }
