@@ -475,17 +475,23 @@
 
       '<div class="card"><h3>📊 صفحة متابعة المحل المتعاون</h3>' +
       '<div class="hint" style="margin:0 0 4px">هذي الصفحة اللي ترسل رابطها لصاحب المحل. عدّل عليها وشوف المعاينة (تتحول تلقائياً لمعاينة الصفحة).</div>' +
-      fld('عنوان أعلى الصفحة', inp('theme.report_heading', t.report_heading, 'data-rp="1"'), 'اتركه فاضي ليظهر اسم المحل') +
+      '<div class="hint" style="margin:6px 0 2px">⚠️ هذي الصفحة مستقلة تماماً: أي تعديل هنا ما يغيّر الكوبون اللي يوصل العميل.</div>' +
+      fld('اسم المحل / عنوان الصفحة', inp('theme.r_title', t.r_title, 'data-rp="1"'), 'مثال: مغسلة النخبة') +
+      fld('أيقونة الصفحة', '<div class="chips">' + EMOJIS.map(e => '<button type="button" class="sw emo" data-remo="' + e + '">' + e + '</button>').join('') + '</div>') +
+      fld('شعار المحل (اختياري، يحل محل الأيقونة)', '<div class="row">' + (t.r_logo ? '<img class="logo-prev" src="' + esc(t.r_logo) + '">' : '') +
+        '<button type="button" class="a-btn ghost sm" id="rlgBtn">رفع شعار</button><input type="file" id="rlgFile" accept="image/*" hidden>' +
+        (t.r_logo ? '<button type="button" class="a-btn ghost sm" id="rlgDel">إزالة</button>' : '') + '</div>') +
+      fld('سطر تحت العنوان (اختياري)', inp('theme.r_sub', t.r_sub, 'data-rp="1"'), 'مثال: تقرير الخدمات — اتركه فاضي لإخفائه') +
+      fld('سطر باسمك (اختياري)', inp('theme.r_issuer', t.r_issuer, 'data-rp="1"'), 'مثال: بالتعاون مع فرحان — اتركه فاضي لإخفائه') +
       fld('النص تحت العدّاد', inp('theme.report_label', t.report_label, 'data-rp="1"'), 'مثال: عميل تمت خدمته') +
       '<label class="switch" style="margin-top:14px"><input type="checkbox" data-rp="1" data-k="theme.show_recent"' + (t.show_recent ? ' checked' : '') + '> إظهار قائمة آخر العمليات</label>' +
       fld('عنوان القائمة', inp('theme.recent_title', t.recent_title, 'data-rp="1"')) +
       '<label class="switch" style="margin-top:14px"><input type="checkbox" data-rp="1" data-k="theme.show_today"' + (t.show_today ? ' checked' : '') + '> إظهار عدد اليوم</label>' +
-      '<label class="switch" style="margin-top:14px"><input type="checkbox" data-rp="1" data-k="theme.report_show_issuer"' + (t.report_show_issuer ? ' checked' : '') + '> إظهار اسمك أعلى الصفحة (إن كتبته في إعدادات الكوبون)</label>' +
       fld('ملاحظة أسفل الصفحة', inp('theme.report_note', t.report_note, 'data-rp="1"'), 'اتركها فاضية لإخفائها') +
-      '<div class="grid2 keep"><div>' + fld('نمط الصفحة', '<select class="a-sel" data-rp="1" data-k="theme.r_mode">' + [['same', 'نفس الكوبون'], ['light', 'فاتح'], ['dark', 'داكن']].map(o => '<option value="' + o[0] + '"' + (t.r_mode === o[0] ? ' selected' : '') + '>' + o[1] + '</option>').join('') + '</select>') + '</div>' +
-      '<div><label class="switch" style="margin-top:36px"><input type="checkbox" data-rp="1" data-k="theme.r_custom"' + (t.r_custom ? ' checked' : '') + '> ألوان مختلفة عن الكوبون</label></div></div>' +
-      '<div class="grid2 keep" style="margin-top:6px"><div><label class="f">لون الصفحة الرئيسي</label><input type="color" data-rp="1" data-k="theme.r_color" value="' + esc(t.r_color) + '"></div>' +
-      '<div><label class="f">لون الصفحة الثانوي</label><input type="color" data-rp="1" data-k="theme.r_color2" value="' + esc(t.r_color2) + '"></div></div>' +
+      '<div class="grid2 keep"><div>' + fld('نمط الصفحة', '<select class="a-sel" data-rp="1" data-k="theme.r_mode">' + [['light', 'فاتح'], ['dark', 'داكن'], ['auto', 'تلقائي']].map(o => '<option value="' + o[0] + '"' + (t.r_mode === o[0] ? ' selected' : '') + '>' + o[1] + '</option>').join('') + '</select>') + '</div>' +
+      '<div>' + fld('الخط', '<select class="a-sel" data-rp="1" data-k="theme.r_font">' + Object.keys(App.FONTS).map(f => '<option' + (t.r_font === f ? ' selected' : '') + '>' + f + '</option>').join('') + '</select>') + '</div></div>' +
+      '<div class="grid2 keep" style="margin-top:6px"><div><label class="f">اللون الرئيسي</label><input type="color" data-rp="1" data-k="theme.r_color" value="' + esc(t.r_color) + '"></div>' +
+      '<div><label class="f">اللون الثانوي</label><input type="color" data-rp="1" data-k="theme.r_color2" value="' + esc(t.r_color2) + '"></div></div>' +
       '</div>' +
 
       '<div class="row" style="margin-bottom:24px"><button class="a-btn" id="saveBtn" style="flex:1">' + (isNew ? 'إنشاء الحملة' : 'حفظ التغييرات') + '</button>' +
@@ -544,20 +550,25 @@
     });
     v.querySelectorAll('[data-pv]').forEach(b => b.onclick = () => { pvState = b.dataset.pv; drawPreview(); });
     v.querySelectorAll('[data-pvm]').forEach(b => b.onclick = () => { pvMode = b.dataset.pvm; drawPreview(); });
+    v.querySelectorAll('[data-remo]').forEach(b => b.onclick = () => { draft.theme.r_emoji = b.dataset.remo; draft.theme.r_logo = ''; pvMode = 'report'; viewSettings(); });
+    $('#rlgBtn').onclick = () => $('#rlgFile').click();
+    $('#rlgFile').onchange = e => { const f = e.target.files[0]; if (f) resizeLogo(f, 'r_logo'); };
+    const rdel = $('#rlgDel'); if (rdel) rdel.onclick = () => { draft.theme.r_logo = ''; pvMode = 'report'; viewSettings(); };
     $('#lgBtn').onclick = () => $('#lgFile').click();
     $('#lgFile').onchange = e => { const f = e.target.files[0]; if (f) resizeLogo(f); };
     const del = $('#lgDel'); if (del) del.onclick = () => { draft.theme.logo = ''; viewSettings(); };
     $('#saveBtn').onclick = save;
     const dl = $('#delBtn'); if (dl) dl.onclick = removeCamp;
   }
-  function resizeLogo(file) {
+  function resizeLogo(file, key) {
+    key = key || 'logo';
     const img = new Image(), url = URL.createObjectURL(file);
     img.onload = () => {
       const S = 256, cv = document.createElement('canvas'); cv.width = cv.height = S;
       const x = cv.getContext('2d'); const r = Math.max(S / img.width, S / img.height);
       const w = img.width * r, h = img.height * r;
       x.fillStyle = '#fff'; x.fillRect(0, 0, S, S); x.drawImage(img, (S - w) / 2, (S - h) / 2, w, h);
-      draft.theme.logo = cv.toDataURL('image/jpeg', .85); URL.revokeObjectURL(url); viewSettings();
+      draft.theme[key] = cv.toDataURL('image/jpeg', .85); URL.revokeObjectURL(url); if (key === 'r_logo') pvMode = 'report'; viewSettings();
     };
     img.onerror = () => toast('تعذّر قراءة الصورة');
     img.src = url;
