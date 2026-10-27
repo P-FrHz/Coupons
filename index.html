@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>كوبون هدية</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main class="wrap" id="app"><div class="skeleton"></div></main>
+<div id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<script src="config.js"></script>
+<script src="shared.js"></script>
+<script>
+(function () {
+  const app = document.getElementById('app');
+  const q = new URLSearchParams(location.search);
+  const code = (q.get('c') || '').trim().toLowerCase();
+  const cashierMode = q.has('k');
+  let data = null;
+
+  const ERR = {
+    bad_pin: 'الرمز السري غير صحيح',
+    locked: 'محاولات كثيرة خاطئة. انتظر 15 دقيقة ثم جرّب مرة أخرى',
+    already: 'هذا الكوبون مستخدم مسبقاً',
+    expired: 'انتهت صلاحية الكوبون',
+    inactive: 'العرض متوقف حالياً',
+    cap_reached: 'وصلنا للحد الأقصى للعرض. لا يمكن اعتماد هذا الكوبون',
+    invalid: 'كوبون غير صحيح'
+  };
+
+  async function load() {
+    app.innerHTML = '<div class="skeleton"></div>';
+    try {
+      data = code ? await App.rpc('get_coupon', { p_code: code }) : { status: 'invalid' };
+    } catch (e) { return showError(e); }
+    draw();
+  }
+
+  function showError(e) {
+    const msg = e.message === 'not_configured'
+      ? 'لم يتم ضبط الاتصال بقاعدة البيانات بعد (ملف config.js).'
+      : 'تعذّر الاتصال. تأكد من الإنترنت وحاول مرة أخرى.';
+    app.innerHTML = '<div class="notice"><div class="big">⚠️</div><h2>حدث خطأ</h2><p>' + App.esc(msg) +
+      '</p><button class="btn" id="retry">إعادة المحاولة</button></div>';
+    document.getElementById('retry').onclick = load;
+  }
+
+  function cashierHtml(open) {
+    return '<section class="cashier" id="cashier"' + (open ? '' : ' hidden') + '>' +
+      '<h3>🔐 للكاشير</h3><p>أدخل الرمز السري للمحل ثم اضغط تأكيد الاستخدام.</p>' +
+      '<input class="field" id="pin" type="password" inputmode="numeric" autocomplete="off" placeholder="••••">' +
+      '<button class="btn" id="confirm">تأكيد الاستخدام</button>' +
+      '<div class="msg" id="msg"></div></section>' +
+      (open ? '' : '<button class="linklike" id="iam">أنا الكاشير</button>');
+  }
+
+  function draw() {
+    const t = App.applyTheme(data.theme);
+    document.title = t.brand + ' — ' + t.offer_title;
+    const valid = data.status === 'valid';
+    app.innerHTML = '<div id="tk"></div>' + (valid ? cashierHtml(cashierMode) : '');
+    App.renderCoupon(document.getElementById('tk'), Object.assign({ code: code }, data), {
+      qr: !cashierMode,
+      qrText: App.couponLink(code) + '&k=1'
+    });
+    if (!valid) return;
+
+    const pin = document.getElementById('pin');
+    const saved = (function () { try { return localStorage.getItem('pin:' + data.slug) || ''; } catch (e) { return ''; } })();
+    pin.value = saved;
+
+    const iam = document.getElementById('iam');
+    if (iam) iam.onclick = () => {
+      document.getElementById('cashier').hidden = false;
+      iam.remove();
+      document.getElementById('cashier').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      if (!pin.value) pin.focus();
+    };
+    document.getElementById('confirm').onclick = confirmUse;
+    pin.addEventListener('keydown', e => { if (e.key === 'Enter') confirmUse(); });
+  }
+
+  async function confirmUse() {
+    const pin = document.getElementById('pin'), btn = document.getElementById('confirm'), msg = document.getElementById('msg');
+    if (!pin.value) { msg.textContent = 'أدخل الرمز السري'; pin.focus(); return; }
+    btn.disabled = true; msg.textContent = '';
+    let r;
+    try { r = await App.rpc('redeem_coupon', { p_code: code, p_pin: pin.value }); }
+    catch (e) { btn.disabled = false; msg.textContent = 'تعذّر الاتصال، حاول مرة أخرى'; return; }
+    btn.disabled = false;
+    if (!r.ok) {
+      msg.textContent = ERR[r.error] || 'تعذّر الاعتماد';
+      if (r.error === 'already' || r.error === 'cap_reached' || r.error === 'expired' || r.error === 'inactive') {
+        setTimeout(load, 1800);
+      }
+      return;
+    }
+    try { localStorage.setItem('pin:' + data.slug, pin.value); } catch (e) {}
+    showSuccess(r);
+  }
+
+  function showSuccess(r) {
+    const o = document.createElement('div');
+    o.className = 'overlay';
+    o.innerHTML = '<div class="success">' +
+      '<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="46"/><path d="M30 52l14 14 27-30"/></svg>' +
+      '<h2>تم تأكيد الاستخدام</h2><p>قدّم للعميل: <b>' + App.esc((data.theme && data.theme.offer_title) || App.DEFAULT_THEME.offer_title) + '</b></p>' +
+      '<button class="btn" id="done">تم</button></div>';
+    document.body.appendChild(o);
+    if (navigator.vibrate) navigator.vibrate(40);
+    document.getElementById('done').onclick = () => { o.remove(); load(); };
+  }
+
+  load();
+})();
+</script>
+</body>
+</html>
