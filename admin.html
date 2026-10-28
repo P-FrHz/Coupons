@@ -59,6 +59,7 @@
   .badge{font-size:12px;font-weight:700;padding:3px 10px;border-radius:99px}
   .b-new{background:#dcfce7;color:#166534}.b-used{background:#dbeafe;color:#1e40af}.b-exp{background:#fef3c7;color:#92400e}.b-rep{background:#e5e7eb;color:#4b5563}
   .crow.replaced{opacity:.6}
+  .b-sent{background:#ede9fe;color:#5b21b6}.crow.sent{background:color-mix(in srgb,#8b5cf6 5%,transparent)}
   .chip.on{background:var(--a-pri);color:var(--a-bg);border-color:var(--a-pri)}
   .clabel{color:var(--a-mut);font-size:13.5px;margin:4px 0 8px}
   .cact{display:flex;gap:6px;flex-wrap:wrap}
@@ -228,16 +229,26 @@
   }
   const link = code => App.couponLink(code, BASE);
   // الحالة: used | avail | expired (تحتاج بدل) | replaced
+  // «مُرسل» = عليه ملاحظة (جوال/فاتورة). البديل الجديد يبقى «متاح» لين تأكد إرساله (علامة ✓ في الملاحظة)
+  let _rs = null;
+  function replSet() {
+    if (!_rs || _rs.src !== coupons || _rs.n !== coupons.length) _rs = { src: coupons, n: coupons.length, s: new Set(coupons.map(x => x.replaced_by).filter(Boolean)) };
+    return _rs.s;
+  }
+  const isRepl = k => replSet().has(k.code);
+  const hasMark = k => /✓\s*$/.test(k.label || '');
+  const isSent = k => !!String(k.label || '').trim() && (!isRepl(k) || hasMark(k));
   function stat(k) {
     if (k.redeemed_at) return 'used';
     if (k.expires_at && new Date(k.expires_at) < new Date()) return k.replaced_by ? 'replaced' : 'expired';
-    return 'avail';
+    return isSent(k) ? 'sent' : 'avail';
   }
-  const FLT = [['all', 'الكل'], ['avail', 'متاح'], ['used', 'مستخدم'], ['expired', 'منتهي'], ['replaced', 'تم استبداله']];
+  const FLT = [['all', 'الكل'], ['avail', 'متاح (لم يُرسل)'], ['sent', 'مُرسل لعميل'], ['used', 'مستخدم'], ['expired', 'منتهي'], ['replaced', 'تم استبداله']];
   const filtered = () => coupons.filter(k => filter === 'all' || stat(k) === filter);
   function badge(k) {
     const s = stat(k);
     if (s === 'used') return '<span class="badge b-used">مستخدم · ' + esc(App.fmtDateTime(k.redeemed_at)) + '</span>';
+    if (s === 'sent') return '<span class="badge b-sent">مُرسل · ' + (k.expires_at ? 'حتى ' + esc(App.fmtDate(k.expires_at)) : 'بدون انتهاء') + '</span>';
     if (s === 'avail') return '<span class="badge b-new">متاح · ' + (k.expires_at ? 'حتى ' + esc(App.fmtDate(k.expires_at)) : 'بدون انتهاء') + '</span>';
     if (s === 'expired') return '<span class="badge b-exp">منتهي · ' + esc(App.fmtDate(k.expires_at)) + '</span>';
     const rep = coupons.find(x => x.code === k.replaced_by);
@@ -258,10 +269,11 @@
     const rows = list.map(k => {
       const s = stat(k);
       return '<div class="crow ' + s + '"><div class="cmain"><span class="num">#' + k.n + '</span><code>' + esc(App.fmtCode(k.code)) + '</code>' + badge(k) + '</div>' +
-        '<div class="clabel">' + (k.label ? esc(k.label) : '<i>بدون ملاحظة (جوال العميل أو رقم الفاتورة)</i>') + '</div>' +
+        '<div class="clabel">' + (k.label ? esc(k.label) : '<i>لم يُرسل بعد — أضف جوال العميل بعد الإرسال ✏️ ليدخل «مُرسل»</i>') + (isRepl(k) && s === 'avail' ? ' <b style="color:#b45309">· بديل جديد، أرسله للعميل ثم اضغط ✔</b>' : '') + '</div>' +
         '<div class="cact" data-code="' + k.code + '">' +
-        (s === 'avail' ? '<button class="a-btn sm" data-act="pdf">📄 إرسال PDF</button><button class="a-btn ghost sm" data-act="wa">رابط واتساب</button><button class="a-btn ghost sm" data-act="copy">نسخ الرابط</button>' +
+        ((s === 'avail' || s === 'sent') ? '<button class="a-btn sm" data-act="pdf">📄 إرسال PDF</button><button class="a-btn ghost sm" data-act="wa">رابط واتساب</button><button class="a-btn ghost sm" data-act="copy">نسخ الرابط</button>' +
           '<button class="a-btn ghost sm" data-act="qr">QR</button><button class="a-btn ghost sm" data-act="open">فتح</button>' : '') +
+        (s === 'avail' && isRepl(k) && String(k.label || '').trim() ? '<button class="a-btn sm" data-act="sentok">✔ تم الإرسال</button>' : '') +
         (s === 'expired' ? '<button class="a-btn sm" data-act="rep">🔄 استبدال</button>' : '') +
         '<button class="a-btn ghost sm" data-act="label">✏️</button>' +
         (s === 'used' ? '<button class="a-btn ghost sm" data-act="undo">↩ تراجع</button>' : '') +
@@ -299,10 +311,15 @@
     else if (a === 'pdf') sharePdf(k);
     else if (a === 'qr') downloadOne(k);
     else if (a === 'rep') replaceExpired(code);
+    else if (a === 'sentok') {
+      const v = String(k.label || '').trim() + ' ✓';
+      try { await api('admin_set_label', { p_code: code, p_label: v }); k.label = v; drawCoupons(); toast('انتقل إلى «مُرسل لعميل»'); } catch (er) { toast(errText(er)); }
+    }
     else if (a === 'label') {
-      const v = prompt('ملاحظة (جوال العميل أو رقم الفاتورة):', k.label || '');
-      if (v === null) return;
-      try { await api('admin_set_label', { p_code: code, p_label: v }); k.label = v.trim() || null; drawCoupons(); } catch (er) { toast(errText(er)); }
+      const v0 = prompt('جوال العميل أو رقم الفاتورة (يدخل الكوبون قائمة «مُرسل»). امسحها لإرجاعه إلى «متاح»:', (k.label || '').replace(/\s*✓\s*$/, ''));
+      if (v0 === null) return;
+      let v = v0.trim(); if (v && isRepl(k)) v += ' ✓';
+      try { await api('admin_set_label', { p_code: code, p_label: v }); k.label = v || null; drawCoupons(); toast(v ? 'انتقل إلى «مُرسل لعميل»' : 'رجع إلى «متاح»'); } catch (er) { toast(errText(er)); }
     } else if (a === 'undo') {
       if (!confirm('إلغاء استخدام هذا الكوبون وإرجاعه صالحاً؟')) return;
       try { await api('admin_unredeem', { p_code: code }); await loadCamps(); await loadCoupons(); drawCoupons(); toast('تم التراجع'); } catch (er) { toast(errText(er)); }
@@ -350,7 +367,7 @@
     toast('نزّلت الـPDF، أرفقه في محادثة واتساب');
   }
   async function exportPdfZip() {
-    const list = filtered().filter(k => stat(k) === 'avail');
+    const list = filtered().filter(k => stat(k) === 'avail' || stat(k) === 'sent');
     if (!list.length) return toast('لا توجد كوبونات متاحة في القائمة');
     const btn = $('#pdfZipBtn'); btn.disabled = true; const files = [];
     try {
@@ -419,7 +436,7 @@
   function exportCsv() {
     const list = filtered(); if (!list.length) return toast('لا توجد كوبونات');
     const q = s => '"' + String(s == null ? '' : s).replace(/"/g, '""') + '"';
-    const ST = { avail: 'available', used: 'used', expired: 'expired', replaced: 'replaced' };
+    const ST = { avail: 'available', sent: 'sent', used: 'used', expired: 'expired', replaced: 'replaced' };
     const rows = [['#', 'code', 'link', 'note', 'status', 'expires_at', 'redeemed_at', 'replaced_by']].concat(list.map(k =>
       [k.n, k.code, link(k.code), k.label || '', ST[stat(k)], k.expires_at || '', k.redeemed_at || '', k.replaced_by || '']));
     const blob = new Blob(['﻿' + rows.map(r => r.map(q).join(',')).join('\n')], { type: 'text/csv;charset=utf-8' });
